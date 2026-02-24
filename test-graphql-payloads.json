@@ -1,0 +1,21 @@
+{
+    "createAdminUser": {
+        "query": "mutation CreateAdminUser($email: String!, $password: String!, $firstName: String!, $lastName: String!, $phone: String, $department: String, $permissions: [String]) { createAdminUser(email: $email, password: $password, firstName: $firstName, lastName: $lastName, phone: $phone, department: $department, permissions: $permissions) { token user { id email firstName lastName role status } } }",
+        "variables": {
+            "email": "test.admin@example.com",
+            "password": "Password123!",
+            "firstName": "Test",
+            "lastName": "Admin",
+            "phone": "0555123456",
+            "department": "IT",
+            "permissions": [
+                "MANAGE_USERS",
+                "VIEW_STATS"
+            ]
+        }
+    },
+    "getAdmins": {
+        "query": "query GetAdmins { admins { id user { id email firstName lastName phone role status createdAt } department permissions lastLogin createdAt } }",
+        "variables": {}
+    }
+}
