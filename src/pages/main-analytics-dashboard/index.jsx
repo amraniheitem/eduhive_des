@@ -392,6 +392,15 @@ const MainAnalyticsDashboardContent = () => {
                 >
                   Finances
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/memory-analytics')}
+                  iconName="Brain"
+                  iconPosition="left"
+                >
+                  IA Mémorisation
+                </Button>
               </div>
             </div>
           </div>

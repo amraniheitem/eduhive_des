@@ -4,7 +4,7 @@ import { getToken } from '../utils/auth';
 
 // HTTP connection to the API
 const httpLink = new HttpLink({
-    uri: import.meta.env.VITE_GRAPHQL_ENDPOINT || 'https://eduhive-backend-cfa1.onrender.com/graphql',
+    uri: import.meta.env.VITE_GRAPHQL_ENDPOINT || 'https://backend-eduhive-1.onrender.com/graphql',
 });
 
 // Middleware to add authentication token to headers

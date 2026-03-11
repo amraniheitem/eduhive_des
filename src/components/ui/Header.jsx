@@ -42,6 +42,12 @@ const Header = () => {
       tooltip: 'Suivi des revenus et surveillance budgétaire'
     },
     {
+      label: 'EduhiveAI',
+      path: '/memory-analytics',
+      icon: 'Brain',
+      tooltip: 'IA Mémorisation et sessions d\'apprentissage'
+    },
+    {
       label: 'Paramètres',
       path: '/settings',
       icon: 'Settings',

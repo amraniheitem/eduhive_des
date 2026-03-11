@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_STUDENTS_PERFORMANCE } from '../../../graphql/queries';
-import { UPDATE_USER_MUTATION } from '../../../graphql/mutations';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client';
+import { GET_STUDENT_PERFORMANCE_LIST, GET_STUDENTS } from '../../../graphql/queries';
+import { TOGGLE_USER_STATUS_MUTATION } from '../../../graphql/mutations';
 import Icon from '../../../components/AppIcon';
 import Image from '../../../components/AppImage';
 
@@ -10,6 +10,7 @@ const StudentPerformanceTable = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const client = useApolloClient();
 
   // États pour recherche et filtres
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,28 +21,23 @@ const StudentPerformanceTable = () => {
   const itemsPerPage = 10;
 
   // GraphQL Query
-  const { data, loading, error, refetch } = useQuery(GET_STUDENTS_PERFORMANCE);
+  const { data, loading, error, refetch } = useQuery(GET_STUDENT_PERFORMANCE_LIST, {
+    variables: {
+      limit: 1000 // For now we keep client side pagination
+    },
+    fetchPolicy: 'network-only',
+    errorPolicy: 'all'
+  });
 
   // Mutation pour activer/désactiver un étudiant
-  const [updateUser, { loading: updatingUser }] = useMutation(UPDATE_USER_MUTATION, {
+  const [toggleStatus] = useMutation(TOGGLE_USER_STATUS_MUTATION, {
     onCompleted: (result) => {
-      console.log('✅ Statut mis à jour:', result.updateUser);
+      console.log('✅ Statut mis à jour:', result.toggleUserStatus.status);
       refetch(); // Rafraîchir la liste
-      // Mettre à jour le student sélectionné dans le modal
-      if (selectedStudent && result.updateUser) {
-        setSelectedStudent(prev => ({
-          ...prev,
-          status: result.updateUser.status
-        }));
-      }
+      handleCloseDetails(); // Fermer la modale
     },
     onError: (error) => {
-      console.error('❌ Erreur mise à jour:', error);
-      if (error.networkError?.result?.errors) {
-        error.networkError.result.errors.forEach((err, i) => {
-          console.error(`🔴 Server Error ${i}:`, JSON.stringify(err, null, 2));
-        });
-      }
+      console.error('❌ Erreur:', error.message);
       alert('Erreur lors de la mise à jour: ' + error.message);
     }
   });
@@ -51,37 +47,25 @@ const StudentPerformanceTable = () => {
   console.log('GraphQL Loading:', loading);
 
   const studentsData = useMemo(() => {
-    if (!data?.students) {
-      console.log('No students in data');
-      return [];
-    }
-    console.log('Raw students data:', data.students);
-
-    return data.students.map(student => ({
-      id: student.id,
-      userId: student.user.id, // ID du User pour les mutations
-      name: `${student.user.firstName} ${student.user.lastName}`,
-      email: student.user.email,
-      phone: student.user.phone,
-      parentName: student.parentName,
-      enrollmentDate: student.createdAt,
-      avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_13be3c843-1763299967170.png", // Placeholder
-      avatarAlt: `Photo de profil de ${student.user.firstName}`,
-      program: `${student.educationLevel} ${student.currentYear ? `- ${student.currentYear}` : ''}`,
-      gpa: 3.5, // Placeholder (lacuna)
-      attendance: 90, // Placeholder (lacuna)
-      engagement: 85, // Placeholder (lacuna)
-      assignments: 20, // Placeholder (lacuna)
-      assignmentsCompleted: 15, // Placeholder (lacuna)
-      lastActive: new Date().toISOString(), // Placeholder (lacuna)
-      status: student.user.status,
-      performanceStatus: 'good', // Placeholder (lacuna)
-      credits: student.credit,
-      totalSpent: student.enrolledSubjects?.reduce((acc, sub) => acc + (sub.price || 0), 0) || 0,
-      subjectsPurchased: student.enrolledSubjects?.map(s => s.name) || [],
-      aiQuestionsAsked: 0, // Placeholder (lacuna)
-      aiPointsSpent: 0 // Placeholder (lacuna)
-    }));
+    return (data?.studentPerformanceList?.students || [])
+      .filter(s => s !== null && s !== undefined)
+      .map(student => ({
+        id: student.studentId,
+        name: `${student?.firstName || 'Inconnu'} ${student?.lastName || ''}`.trim(),
+        email: student?.email || 'N/A',
+        program: student?.educationLevel || 'N/A',
+        gpa: student?.averageGrade || 0,
+        attendance: student?.averageProgress || 0,
+        engagement: student?.averageProgress || 0,
+        assignments: student?.enrolledCourses || 0,
+        assignmentsCompleted: student?.completedCourses || 0,
+        lastActive: student?.lastActivity || new Date().toISOString(),
+        status: student?.status || 'INACTIVE',
+        performanceStatus: (student?.averageProgress || 0) > 80 ? 'excellent'
+          : (student?.averageProgress || 0) > 50 ? 'good'
+            : (student?.averageProgress || 0) > 20 ? 'average'
+              : 'at-risk'
+      }));
   }, [data]);
 
   // Programmes uniques pour le filtre
@@ -106,19 +90,39 @@ const StudentPerformanceTable = () => {
   };
 
   // Handler pour activer/désactiver
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedStudent) return;
-    const newStatus = selectedStudent?.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    const confirmMsg = newStatus === 'ACTIVE'
-      ? `Activer l'étudiant ${selectedStudent?.name} ?`
-      : `Désactiver l'étudiant ${selectedStudent?.name} ?`;
+
+    const confirmMsg = selectedStudent.status === 'ACTIVE'
+      ? `Désactiver l'étudiant ${selectedStudent.name} ?`
+      : `Activer l'étudiant ${selectedStudent.name} ?`;
+
     if (window.confirm(confirmMsg)) {
-      updateUser({
-        variables: {
-          id: selectedStudent.userId,
-          status: newStatus
+      try {
+        // Solution de contournement : on récupère tous les étudiants 
+        // pour trouver le userId car le backend ne le renvoie pas encore
+        const { data: studentsDataResponse } = await client.query({
+          query: GET_STUDENTS,
+          fetchPolicy: 'network-only' // S'assurer qu'on a les données à jour
+        });
+
+        const targetStudent = studentsDataResponse?.students?.find(
+          s => s.id === selectedStudent.id
+        );
+
+        if (!targetStudent || !targetStudent.user || !targetStudent.user.id) {
+          throw new Error("Impossible de trouver l'ID système de l'utilisateur. Veuillez rafraîchir la page.");
         }
-      });
+
+        toggleStatus({
+          variables: {
+            userId: targetStudent.user.id
+          }
+        });
+      } catch (err) {
+        console.error("Erreur de récupération:", err);
+        alert(err.message);
+      }
     }
   };
 
@@ -450,10 +454,10 @@ const StudentPerformanceTable = () => {
                     <td className="p-3 md:p-4">
                       <div className="flex items-center gap-3">
                         <Image
-                          src={student?.avatar}
-                          alt={student?.avatarAlt}
+                          src={"https://img.rocket.new/generatedImages/rocket_gen_img_13be3c843-1763299967170.png"}
+                          alt={`Photo de profil de ${student?.name}`}
                           className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover flex-shrink-0" />
-                        <span className="text-sm font-medium text-foreground">{student?.name}</span>
+                        <span className="text-sm font-medium text-foreground">{student?.name || 'Inconnu'}</span>
                       </div>
                     </td>
                     <td className="p-3 md:p-4">
@@ -555,8 +559,8 @@ const StudentPerformanceTable = () => {
             <div className="p-6 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Image
-                  src={selectedStudent?.avatar}
-                  alt={selectedStudent?.avatarAlt}
+                  src={"https://img.rocket.new/generatedImages/rocket_gen_img_13be3c843-1763299967170.png"}
+                  alt={`Photo de profil de ${selectedStudent?.name}`}
                   className="w-16 h-16 rounded-full object-cover" />
                 <div>
                   <h2 className="text-2xl font-heading font-bold text-foreground">
@@ -585,19 +589,19 @@ const StudentPerformanceTable = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="text-sm font-medium text-foreground">{selectedStudent?.email}</p>
+                    <p className="text-sm font-medium text-foreground">{selectedStudent?.email || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Téléphone</p>
-                    <p className="text-sm font-medium text-foreground">{selectedStudent?.phone}</p>
+                    <p className="text-sm font-medium text-foreground">N/A</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Nom du Parent</p>
-                    <p className="text-sm font-medium text-foreground">{selectedStudent?.parentName}</p>
+                    <p className="text-sm font-medium text-foreground">N/A</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Date d'inscription</p>
-                    <p className="text-sm font-medium text-foreground">{formatDate(selectedStudent?.enrollmentDate)}</p>
+                    <p className="text-sm font-medium text-foreground">{formatDate(selectedStudent?.lastActive)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Statut du compte</p>
@@ -647,21 +651,19 @@ const StudentPerformanceTable = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Crédits Disponibles</p>
-                    <p className="text-2xl font-bold text-success">{selectedStudent?.credits} points</p>
+                    <p className="text-2xl font-bold text-success">0 points</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Dépensé</p>
-                    <p className="text-2xl font-bold text-foreground">{selectedStudent?.totalSpent} points</p>
+                    <p className="text-2xl font-bold text-foreground">0 points</p>
                   </div>
                 </div>
                 <div className="mt-4">
                   <p className="text-sm text-muted-foreground mb-2">Matières Achetées</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedStudent?.subjectsPurchased?.map((subject, index) => (
-                      <span key={index} className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                        {subject}
-                      </span>
-                    ))}
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                      Aucune
+                    </span>
                   </div>
                 </div>
               </div>
@@ -675,11 +677,11 @@ const StudentPerformanceTable = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Questions Posées</p>
-                    <p className="text-2xl font-bold text-foreground">{selectedStudent?.aiQuestionsAsked}</p>
+                    <p className="text-2xl font-bold text-foreground">0</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Points Dépensés</p>
-                    <p className="text-2xl font-bold text-foreground">{selectedStudent?.aiPointsSpent}</p>
+                    <p className="text-2xl font-bold text-foreground">0</p>
                   </div>
                 </div>
               </div>

@@ -10,8 +10,7 @@ import InstructorWorkloadChart from './components/InsctructorWorkloadChart';
 import ContentEngagementHeatmap from './components/ContenEngagementHeatmap';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SUBJECTS, GET_ACTIVE_TEACHERS } from '../../graphql/queries';
-import { ASSIGN_TEACHER_MUTATION, createSubjectMutation } from '../../graphql/mutations';
-import client from '../../config/apollo';
+import { ASSIGN_TEACHER_MUTATION, CREATE_SUBJECT_MUTATION } from '../../graphql/mutations';
 import CoursePerformanceTable from './components/CoursePerformanceTable';
 import ExportMenu from './components/ExportMenu';
 
@@ -38,6 +37,13 @@ const CourseAnalytics = () => {
 
   // GraphQL Mutations
   const [creating, setCreating] = useState(false);
+
+  const [createSubject] = useMutation(CREATE_SUBJECT_MUTATION, {
+    onError: (err) => {
+      console.error('❌ ERREUR Création Matière :', err);
+      alert('Erreur lors de la création: ' + err.message);
+    }
+  });
 
   const [assignTeacher, { loading: assigning }] = useMutation(ASSIGN_TEACHER_MUTATION, {
     onCompleted: () => {
@@ -121,8 +127,8 @@ const CourseAnalytics = () => {
 
     setCreating(true);
     try {
-      const { data } = await client.mutate({
-        mutation: createSubjectMutation(name, description, price, category, level)
+      const { data } = await createSubject({
+        variables: { name, description, price, category, level }
       });
 
       console.log("✅ Matière créée :", data);

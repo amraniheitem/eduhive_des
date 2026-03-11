@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@apollo/client';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -9,6 +10,7 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
 const Settings = () => {
+    const navigate = useNavigate();
     const { user, hasRole } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const { language, changeLanguage, t } = useLanguage();
@@ -113,9 +115,18 @@ const Settings = () => {
     return (
         <div className="p-6 max-w-7xl mx-auto animate-fade-in relative">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-heading font-bold text-foreground">{t('settings')}</h1>
-                <p className="text-muted-foreground mt-2">Gérez vos préférences et la configuration de l'application</p>
+            <div className="mb-8 flex flex-col gap-4">
+                <button
+                    onClick={() => navigate('/main-analytics-dashboard')}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit px-3 py-1.5 rounded-lg hover:bg-muted/50"
+                >
+                    <Icon name="ArrowLeft" size={20} />
+                    <span className="font-medium">Retour à l'accueil</span>
+                </button>
+                <div>
+                    <h1 className="text-3xl font-heading font-bold text-foreground">{t('settings')}</h1>
+                    <p className="text-muted-foreground mt-2">Gérez vos préférences et la configuration de l'application</p>
+                </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">

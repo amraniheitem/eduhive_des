@@ -2,46 +2,27 @@ import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import Icon from '../../../components/AppIcon';
 
-const StudentProgressionFunnel = () => {
+const StudentProgressionFunnel = ({ data }) => {
   const [selectedStage, setSelectedStage] = useState(null);
 
-  const progressionData = [
-    {
-      stage: 'Inscrits',
-      students: 2450,
-      percentage: 100,
-      color: '#6366F1',
-      description: 'Total des étudiants inscrits pour l\'année académique'
-    },
-    {
-      stage: 'Actifs',
-      students: 2280,
-      percentage: 93.1,
-      color: '#8B5CF6',
-      description: 'Étudiants avec activité régulière sur la plateforme'
-    },
-    {
-      stage: 'En progression',
-      students: 2105,
-      percentage: 85.9,
-      color: '#10B981',
-      description: 'Étudiants progressant selon le calendrier académique'
-    },
-    {
-      stage: 'Examens réussis',
-      students: 1960,
-      percentage: 80.0,
-      color: '#F59E0B',
-      description: 'Étudiants ayant réussi les évaluations intermédiaires'
-    },
-    {
-      stage: 'Diplômés',
-      students: 1820,
-      percentage: 74.3,
-      color: '#059669',
-      description: 'Étudiants ayant obtenu leur diplôme'
+  const getColorForStage = (stage) => {
+    switch (stage) {
+      case 'Inscription': return '#6366F1';
+      case 'Premier cours acheté': return '#8B5CF6';
+      case 'Première vidéo vue': return '#10B981';
+      case 'Progression 50%': return '#F59E0B';
+      case 'Cours terminé': return '#059669';
+      default: return '#6366F1';
     }
-  ];
+  };
+
+  const progressionData = (data || []).filter(item => item !== null).map(item => ({
+    stage: item.stage || 'Inconnu',
+    students: item.count || 0,
+    percentage: item.percentage || 0,
+    color: getColorForStage(item.stage),
+    description: `Taux d'abandon: ${item.dropoffRate || 0}%`
+  }));
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload?.length) {

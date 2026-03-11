@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_ACTIVE_TEACHERS } from '../../../graphql/queries';
 import {
-  createSubjectMutation,
+  CREATE_SUBJECT_MUTATION,
   UPDATE_SUBJECT_MUTATION,
   ASSIGN_TEACHER_MUTATION,
-  REMOVE_TEACHER_FROM_SUBJECT_MUTATION
+  REMOVE_TEACHER_MUTATION
 } from '../../../graphql/mutations';
 import client from '../../../config/apollo';
 import Icon from '../../../components/AppIcon';
@@ -64,6 +64,16 @@ const CoursePerformanceTable = () => {
     onError: (err) => alert('Erreur lors de la mise à jour: ' + err.message)
   });
 
+  const [createSubject, { loading: creatingSubject }] = useMutation(CREATE_SUBJECT_MUTATION, {
+    onCompleted: () => {
+      refetch();
+      setIsCreateModalOpen(false);
+      resetForm();
+      alert('Matière créée avec succès !');
+    },
+    onError: (err) => alert('Erreur lors de la création: ' + err.message)
+  });
+
   const [assignTeacher, { loading: assigning }] = useMutation(ASSIGN_TEACHER_MUTATION, {
     onCompleted: () => {
       refetch();
@@ -73,7 +83,7 @@ const CoursePerformanceTable = () => {
     onError: (err) => alert('Erreur lors de l\'assignation: ' + err.message)
   });
 
-  const [removeTeacher, { loading: removing }] = useMutation(REMOVE_TEACHER_FROM_SUBJECT_MUTATION, {
+  const [removeTeacher, { loading: removing }] = useMutation(REMOVE_TEACHER_MUTATION, {
     onCompleted: () => {
       refetch();
       setIsAssignModalOpen(false); // Si ouvert
@@ -197,24 +207,17 @@ const CoursePerformanceTable = () => {
           price: parseFloat(formData.price),
         }
       });
-    } else {
       setCreating(true);
       try {
-        await client.mutate({
-          mutation: createSubjectMutation(
-            formData.name,
-            formData.description,
-            parseFloat(formData.price),
-            formData.category,
-            formData.level
-          )
+        await createSubject({
+          variables: {
+            name: formData.name,
+            description: formData.description,
+            price: parseFloat(formData.price),
+            category: formData.category,
+            level: formData.level
+          }
         });
-        refetch();
-        setIsCreateModalOpen(false);
-        resetForm();
-        alert('Matière créée avec succès !');
-      } catch (err) {
-        alert('Erreur lors de la création: ' + err.message);
       } finally {
         setCreating(false);
       }

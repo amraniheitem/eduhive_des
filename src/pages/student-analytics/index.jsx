@@ -18,7 +18,7 @@ import {
   GET_STUDENT_ENGAGEMENT_HEATMAP,
   GET_AT_RISK_STUDENTS_LIST,
   GET_STUDENT_PERFORMANCE_LIST
-} from '../../graphql/queries/studentAnalytics';
+} from '../../graphql/queries';
 
 const StudentAnalytics = () => {
   // ==========================================
@@ -29,14 +29,16 @@ const StudentAnalytics = () => {
     GET_STUDENT_ANALYTICS_KPIS,
     {
       variables: { dateRange: null },
-      fetchPolicy: 'cache-and-network'
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all'
     }
   );
 
   const { data: funnelData, loading: funnelLoading, error: funnelError } = useQuery(
     GET_STUDENT_PROGRESSION_FUNNEL,
     {
-      fetchPolicy: 'cache-and-network'
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all'
     }
   );
 
@@ -44,7 +46,8 @@ const StudentAnalytics = () => {
     GET_STUDENT_ENGAGEMENT_HEATMAP,
     {
       variables: { dateRange: null },
-      fetchPolicy: 'cache-and-network'
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all'
     }
   );
 
@@ -52,7 +55,8 @@ const StudentAnalytics = () => {
     GET_AT_RISK_STUDENTS_LIST,
     {
       variables: { limit: 50, riskLevel: null },
-      fetchPolicy: 'cache-and-network'
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all'
     }
   );
 
@@ -65,7 +69,8 @@ const StudentAnalytics = () => {
         orderBy: null,
         filters: null
       },
-      fetchPolicy: 'cache-and-network'
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all'
     }
   );
 
@@ -151,30 +156,14 @@ const StudentAnalytics = () => {
   const isLoading = kpisLoading || funnelLoading || heatmapLoading ||
     atRiskLoading || performanceLoading;
 
-  const hasError = kpisError || funnelError || heatmapError ||
-    atRiskError || performanceError;
+  const hasError = (kpisError && !kpisData) &&
+    (funnelError && !funnelData) &&
+    (heatmapError && !heatmapData) &&
+    (atRiskError && !atRiskData) &&
+    (performanceError && !performanceData);
 
-  // Afficher erreur si problème
   if (hasError) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Icon name="AlertCircle" size={48} className="text-error mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            Erreur de chargement
-          </h2>
-          <p className="text-muted-foreground mb-4">
-            Impossible de charger les analytics étudiants
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
-          >
-            Réessayer
-          </button>
-        </div>
-      </div>
-    );
+    console.error("Toutes les requêtes analytiques ont échoué.");
   }
 
   return (
@@ -187,6 +176,13 @@ const StudentAnalytics = () => {
       {/* Contenu principal */}
       <main className="px-4 md:px-6 lg:px-8 py-6 md:py-8">
         <div className="max-w-[1920px] mx-auto">
+          {(atRiskError || performanceError) && (
+            <div className="mb-4 p-3 bg-warning/10 border border-warning/20 rounded-lg text-warning text-sm flex items-center gap-2">
+              <Icon name="AlertTriangle" size={16} />
+              Certaines données n'ont pas pu être chargées.
+            </div>
+          )}
+
           {/* Titre + Bouton Export */}
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 md:mb-8">
             <div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes as RouterRoutes, Route } from "react-router-dom";
+import { HashRouter, Routes as RouterRoutes, Route } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -11,10 +11,11 @@ import CourseAnalytics from './pages/course-analytics';
 import MainAnalyticsDashboard from './pages/main-analytics-dashboard';
 import Login from './pages/Login/index.jsx';
 import Settings from './pages/Settings/index.jsx';
+import MemoryAIDashboard from './pages/MemoryAIDashboard';
 
 const Routes = () => {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <ErrorBoundary>
         <ScrollToTop />
         <RouterRoutes>
@@ -71,12 +72,20 @@ const Routes = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/memory-analytics"
+            element={
+              <ProtectedRoute>
+                <MemoryAIDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* 404 Not Found */}
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>
       </ErrorBoundary>
-    </BrowserRouter>
+    </HashRouter>
   );
 };
 
