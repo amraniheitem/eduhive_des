@@ -13,7 +13,7 @@ import DepartmentPerformanceTable from './components/DepartementPerformanceTable
 import RealTimeActivityFeed from './components/RealTimeActivityFeed';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
-// Import des queries
+
 import {
   GET_DASHBOARD_KPIS,
   GET_MONTHLY_TRENDS,
@@ -22,58 +22,115 @@ import {
   GET_DEPARTMENT_PERFORMANCE,
   GET_RECENT_ACTIVITY
 } from '../../graphql/queries/dashboard';
+
+// ==========================================
+// COMPOSANT : Bloc d'erreur par section
+// ==========================================
+const SectionError = ({ title, message, onRetry }) => (
+  <div className="bg-card rounded-lg border border-border p-6 flex flex-col items-center justify-center min-h-[120px] text-center gap-3">
+    <Icon name="AlertCircle" size={28} className="text-error" />
+    <div>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="text-xs text-muted-foreground mt-1">{message}</p>
+    </div>
+    {onRetry && (
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Réessayer
+      </Button>
+    )}
+  </div>
+);
+
+// ==========================================
+// COMPOSANT : Skeleton loader
+// ==========================================
+const Skeleton = ({ className = '' }) => (
+  <div className={`bg-card rounded-lg border border-border p-6 animate-pulse ${className}`}>
+    <div className="h-full bg-muted rounded"></div>
+  </div>
+);
+
+// ==========================================
+// CONTENU PRINCIPAL
+// ==========================================
 const MainAnalyticsDashboardContent = () => {
   const navigate = useNavigate();
   const { filters } = useFilters();
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+
   // ==========================================
-  // FETCHING DES DONNÉES
+  // FETCHING — chaque query est indépendante
   // ==========================================
-  const { data: kpisData, loading: kpisLoading, error: kpisError, refetch: refetchKpis } = useQuery(
-    GET_DASHBOARD_KPIS,
-    {
-      variables: { dateRange: null }, // Utiliser les 30 derniers jours par défaut
-      fetchPolicy: 'cache-and-network'
-    }
-  );
-  const { data: trendsData, loading: trendsLoading, error: trendsError, refetch: refetchTrends } = useQuery(
-    GET_MONTHLY_TRENDS,
-    {
-      variables: { months: 12 },
-      fetchPolicy: 'cache-and-network'
-    }
-  );
-  const { data: topCoursesDataRaw, loading: topCoursesLoading, error: topCoursesError, refetch: refetchTopCourses } = useQuery(
-    GET_TOP_COURSES,
-    {
-      variables: { limit: 10 },
-      fetchPolicy: 'cache-and-network'
-    }
-  );
-  const { data: atRiskDataRaw, loading: atRiskLoading, error: atRiskError, refetch: refetchAtRisk } = useQuery(
-    GET_AT_RISK_STUDENTS,
-    {
-      variables: { limit: 10 },
-      fetchPolicy: 'cache-and-network'
-    }
-  );
-  const { data: departmentsDataRaw, loading: departmentsLoading, error: departmentsError, refetch: refetchDepartments } = useQuery(
-    GET_DEPARTMENT_PERFORMANCE,
-    {
-      fetchPolicy: 'cache-and-network'
-    }
-  );
-  const { data: activityDataRaw, loading: activityLoading, error: activityError, refetch: refetchActivity } = useQuery(
-    GET_RECENT_ACTIVITY,
-    {
-      variables: { limit: 10 },
-      fetchPolicy: 'cache-and-network'
-    }
-  );
+  const {
+    data: kpisData,
+    loading: kpisLoading,
+    error: kpisError,
+    refetch: refetchKpis
+  } = useQuery(GET_DASHBOARD_KPIS, {
+    variables: { dateRange: null },
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all'   // ← retourne data partielle même en cas d'erreur
+  });
+
+  const {
+    data: trendsData,
+    loading: trendsLoading,
+    error: trendsError,
+    refetch: refetchTrends
+  } = useQuery(GET_MONTHLY_TRENDS, {
+    variables: { months: 12 },
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all'
+  });
+
+  const {
+    data: topCoursesDataRaw,
+    loading: topCoursesLoading,
+    error: topCoursesError,
+    refetch: refetchTopCourses
+  } = useQuery(GET_TOP_COURSES, {
+    variables: { limit: 10 },
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all'
+  });
+
+  const {
+    data: atRiskDataRaw,
+    loading: atRiskLoading,
+    error: atRiskError,
+    refetch: refetchAtRisk
+  } = useQuery(GET_AT_RISK_STUDENTS, {
+    variables: { limit: 10 },
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all'
+  });
+
+  const {
+    data: departmentsDataRaw,
+    loading: departmentsLoading,
+    error: departmentsError,
+    refetch: refetchDepartments
+  } = useQuery(GET_DEPARTMENT_PERFORMANCE, {
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all'
+  });
+
+  const {
+    data: activityDataRaw,
+    loading: activityLoading,
+    error: activityError,
+    refetch: refetchActivity
+  } = useQuery(GET_RECENT_ACTIVITY, {
+    variables: { limit: 10 },
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all'
+  });
+
   // ==========================================
   // TRANSFORMATION DES DONNÉES
   // ==========================================
+
   // 1. KPIs
   const kpiData = kpisData?.dashboardKPIs ? [
     {
@@ -125,8 +182,10 @@ const MainAnalyticsDashboardContent = () => {
       }
     }
   ] : [];
-  // 2. Tendances (déjà au bon format)
+
+  // 2. Tendances
   const trendData = trendsData?.monthlyTrends || [];
+
   // 3. Top Cours
   const topCoursesData = {
     title: 'Cours les plus performants',
@@ -139,13 +198,9 @@ const MainAnalyticsDashboardContent = () => {
       status: course.status.toLowerCase()
     })) || []
   };
+
   // 4. Étudiants à risque
-  // Mapper severity: HIGH/MEDIUM/LOW → low/medium/high (inversé pour l'affichage)
-  const severityToStatus = {
-    'HIGH': 'low',    // Haute sévérité = status rouge (low)
-    'MEDIUM': 'medium',
-    'LOW': 'low'
-  };
+  const severityToStatus = { 'HIGH': 'low', 'MEDIUM': 'medium', 'LOW': 'low' };
   const atRiskStudentsData = {
     title: 'Étudiants à risque',
     icon: 'AlertTriangle',
@@ -157,6 +212,7 @@ const MainAnalyticsDashboardContent = () => {
       status: severityToStatus[course.severity] || 'medium'
     })) || []
   };
+
   // 5. Départements
   const departmentsData = departmentsDataRaw?.departmentPerformance?.map((dept, index) => ({
     id: index + 1,
@@ -168,15 +224,17 @@ const MainAnalyticsDashboardContent = () => {
     revenue: dept.revenue,
     details: dept.details
   })) || [];
-  // 6. Activité (passer directement au composant)
+
+  // 6. Activité récente
   const recentActivityData = activityDataRaw?.recentActivity || [];
+
   // ==========================================
-  // GESTION DU REFRESH
+  // REFRESH
   // ==========================================
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
+      await Promise.allSettled([   // ← allSettled: continue même si une query échoue
         refetchKpis(),
         refetchTrends(),
         refetchTopCourses(),
@@ -191,55 +249,27 @@ const MainAnalyticsDashboardContent = () => {
       setRefreshing(false);
     }
   };
-  // Auto-refresh toutes les 15 minutes
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      handleRefresh();
-    }, 900000); // 15 minutes
+    const interval = setInterval(() => { handleRefresh(); }, 900000);
     return () => clearInterval(interval);
   }, []);
+
   // ==========================================
-  // GESTION DES ÉTATS DE CHARGEMENT
+  // EXPORT
   // ==========================================
-  const isLoading = kpisLoading || trendsLoading || topCoursesLoading ||
-    atRiskLoading || departmentsLoading || activityLoading;
-  const hasError = kpisError || trendsError || topCoursesError ||
-    atRiskError || departmentsError || activityError;
-  if (hasError) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Icon name="AlertCircle" size={48} className="text-error mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            Erreur de chargement
-          </h2>
-          <p className="text-muted-foreground mb-4">
-            Impossible de charger les statistiques du dashboard
-          </p>
-          <Button onClick={handleRefresh}>
-            Réessayer
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const exportData = { kpis: kpiData, trends: trendData, departments: departmentsData, filters };
+
   // ==========================================
-  // DONNÉES D'EXPORT
-  // ==========================================
-  const exportData = {
-    kpis: kpiData,
-    trends: trendData,
-    departments: departmentsData,
-    filters: filters
-  };
-  // ==========================================
-  // RENDER
+  // RENDER — chaque section gère son propre état
   // ==========================================
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-[128px] lg:pt-[144px] px-4 lg:px-6 pb-8">
         <div className="max-w-[1600px] mx-auto">
+
+          {/* En-tête */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
@@ -273,78 +303,115 @@ const MainAnalyticsDashboardContent = () => {
               <ExportToolbar screenType="main-analytics" data={exportData} />
             </div>
           </div>
+
           <div className="flex items-center gap-2 mb-6 text-xs md:text-sm text-muted-foreground caption">
             <Icon name="Clock" size={14} />
             <span>
               Dernière mise à jour: {lastRefresh?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          {/* KPI Cards avec skeleton loader */}
+
+          {/* ── KPI Cards ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-            {isLoading ? (
-              // Skeleton loaders
-              Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="bg-card rounded-lg border border-border p-6 animate-pulse">
+            {kpisLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-card rounded-lg border border-border p-6 animate-pulse">
                   <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
                   <div className="h-8 bg-muted rounded w-3/4 mb-2"></div>
                   <div className="h-3 bg-muted rounded w-1/3"></div>
                 </div>
               ))
+            ) : kpisError ? (
+              // FIX: erreur KPI → affiche un message, pas une page blanche
+              <div className="col-span-4">
+                <SectionError
+                  title="Impossible de charger les KPIs"
+                  message={kpisError.message}
+                  onRetry={refetchKpis}
+                />
+              </div>
             ) : (
-              kpiData?.map((kpi, index) => (
-                <KPICard key={index} {...kpi} />
-              ))
+              kpiData.map((kpi, index) => <KPICard key={index} {...kpi} />)
             )}
           </div>
-          {/* Graphique et widgets */}
+
+          {/* ── Graphique + Activité ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6">
             <div className="lg:col-span-8">
-              {isLoading ? (
-                <div className="bg-card rounded-lg border border-border p-6 h-[400px] animate-pulse">
-                  <div className="h-full bg-muted rounded"></div>
-                </div>
+              {trendsLoading ? (
+                <Skeleton className="h-[400px]" />
+              ) : trendsError ? (
+                // FIX: erreur trends → section erreur isolée
+                <SectionError
+                  title="Impossible de charger les tendances"
+                  message={trendsError.message}
+                  onRetry={refetchTrends}
+                />
               ) : (
                 <EnrollmentTrendChart data={trendData} />
               )}
             </div>
+
             <div className="lg:col-span-4 space-y-4 md:space-y-6">
-              {/* On garde AlertFeedWidget si tu veux (données hardcodées) */}
-              {isLoading ? (
-                <div className="bg-card rounded-lg border border-border p-6 h-[300px] animate-pulse">
-                  <div className="h-full bg-muted rounded"></div>
-                </div>
+              {activityLoading ? (
+                <Skeleton className="h-[300px]" />
+              ) : activityError ? (
+                // FIX: erreur activity → section erreur isolée
+                <SectionError
+                  title="Impossible de charger l'activité"
+                  message={activityError.message}
+                  onRetry={refetchActivity}
+                />
               ) : (
                 <RealTimeActivityFeed activities={recentActivityData} />
               )}
             </div>
           </div>
-          {/* Quick Access Widgets */}
+
+          {/* ── Quick Access Widgets ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
-            {isLoading ? (
-              <>
-                <div className="bg-card rounded-lg border border-border p-6 h-[300px] animate-pulse">
-                  <div className="h-full bg-muted rounded"></div>
-                </div>
-                <div className="bg-card rounded-lg border border-border p-6 h-[300px] animate-pulse">
-                  <div className="h-full bg-muted rounded"></div>
-                </div>
-              </>
+            {topCoursesLoading ? (
+              <Skeleton className="h-[300px]" />
+            ) : topCoursesError ? (
+              // FIX: erreur top courses → section erreur isolée
+              <SectionError
+                title="Impossible de charger les top cours"
+                message={topCoursesError.message}
+                onRetry={refetchTopCourses}
+              />
             ) : (
-              <>
-                <QuickAccessWidget {...topCoursesData} />
-                <QuickAccessWidget {...atRiskStudentsData} />
-              </>
+              <QuickAccessWidget {...topCoursesData} />
+            )}
+
+            {atRiskLoading ? (
+              <Skeleton className="h-[300px]" />
+            ) : atRiskError ? (
+              // FIX: erreur at-risk → section erreur isolée, pas de page blanche
+              <SectionError
+                title="Impossible de charger les étudiants à risque"
+                message={atRiskError.message}
+                onRetry={refetchAtRisk}
+              />
+            ) : (
+              <QuickAccessWidget {...atRiskStudentsData} />
             )}
           </div>
-          {/* Table des départements */}
-          {isLoading ? (
-            <div className="bg-card rounded-lg border border-border p-6 h-[400px] animate-pulse">
-              <div className="h-full bg-muted rounded"></div>
-            </div>
+
+          {/* ── Table des départements ── */}
+          {departmentsLoading ? (
+            <Skeleton className="h-[400px]" />
+          ) : departmentsError ? (
+            // FIX: erreur departments → section erreur isolée
+            <SectionError
+              title="Impossible de charger les départements"
+              message={departmentsError.message}
+              onRetry={refetchDepartments}
+            />
           ) : (
             <DepartmentPerformanceTable departments={departmentsData} />
           )}
-          {/* Quick access buttons */}
+
+          {/* ── Accès rapide ── */}
           <div className="mt-8 p-4 md:p-6 bg-card rounded-lg border border-border">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
@@ -356,66 +423,30 @@ const MainAnalyticsDashboardContent = () => {
                 </p>
               </div>
               <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/student-analytics')}
-                  iconName="Users"
-                  iconPosition="left"
-                >
-                  Étudiants
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/course-analytics')}
-                  iconName="BookOpen"
-                  iconPosition="left"
-                >
-                  Cours
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/teacher-performance')}
-                  iconName="GraduationCap"
-                  iconPosition="left"
-                >
-                  Enseignants
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/financial-analytics')}
-                  iconName="DollarSign"
-                  iconPosition="left"
-                >
-                  Finances
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/memory-analytics')}
-                  iconName="Brain"
-                  iconPosition="left"
-                >
-                  IA Mémorisation
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/student-analytics')} iconName="Users" iconPosition="left">Étudiants</Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/course-analytics')} iconName="BookOpen" iconPosition="left">Cours</Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/teacher-performance')} iconName="GraduationCap" iconPosition="left">Enseignants</Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/financial-analytics')} iconName="DollarSign" iconPosition="left">Finances</Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/memory-analytics')} iconName="Brain" iconPosition="left">IA Mémorisation</Button>
               </div>
             </div>
           </div>
+
         </div>
       </main>
     </div>
   );
 };
-const MainAnalyticsDashboard = () => {
-  return (
-    <NotificationProvider>
-      <FilterProvider>
-        <MainAnalyticsDashboardContent />
-      </FilterProvider>
-    </NotificationProvider>
-  );
-};
+
+// ==========================================
+// EXPORT
+// ==========================================
+const MainAnalyticsDashboard = () => (
+  <NotificationProvider>
+    <FilterProvider>
+      <MainAnalyticsDashboardContent />
+    </FilterProvider>
+  </NotificationProvider>
+);
+
 export default MainAnalyticsDashboard;
